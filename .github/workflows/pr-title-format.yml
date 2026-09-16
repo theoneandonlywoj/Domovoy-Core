@@ -1,0 +1,60 @@
+name: PR Title Format
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  format-pr-title:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Format PR title
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_REPO: ${{ github.repository }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 << 'EOF'
+          import os
+          import re
+          import subprocess
+
+          branch = os.environ["BRANCH_NAME"].rsplit("/", 1)[-1]
+          pr_number = os.environ["PR_NUMBER"]
+
+          minor_words = {
+              "the", "a", "an", "and", "as", "at", "but", "by", "for",
+              "in", "nor", "of", "on", "or", "so", "to", "up", "with",
+          }
+
+          task_id_match = re.match(
+              r"^([A-Z]{2,}-\d+)-(.*)$", branch, re.IGNORECASE
+          )
+          if task_id_match:
+              task_id = task_id_match.group(1).upper()
+              description = task_id_match.group(2)
+          else:
+              task_id = None
+              description = branch
+
+          words = description.split("-")
+          title_parts = []
+          for index, word in enumerate(words):
+              if word.lower() in minor_words and index > 0:
+                  title_parts.append(word.lower())
+              else:
+                  title_parts.append(word.capitalize())
+
+          title = "-".join(title_parts)
+          if task_id:
+              title = f"{task_id}-{title}"
+
+          subprocess.run(
+              ["gh", "pr", "edit", pr_number, "--title", title], check=True
+          )
+          print(f"PR title set to: {title}")
+          EOF

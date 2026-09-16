@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+fail() {
+  printf "\n${RED}${BOLD}[pre-commit] $1 failed.${NC}\n"
+  printf "${RED}$2${NC}\n"
+  exit 1
+}
+
+printf "${BOLD}[pre-commit]${NC} Checking formatting...\n"
+if ! mix format --check-formatted; then
+  fail "Formatting check" "Run 'mix format' to fix, then re-commit."
+fi
+printf "${GREEN}${BOLD}[pre-commit]${NC} Formatting check passed.\n"
+
+printf "${BOLD}[pre-commit]${NC} Running quality checks...\n"
+if ! mix quality; then
+  fail "Quality check" "Run 'mix quality' to see full diagnostics, then re-commit."
+fi
+printf "${GREEN}${BOLD}[pre-commit]${NC} Quality checks passed.\n"

@@ -1,0 +1,116 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        uses: ./.github/actions/setup-beam
+      - name: Check for unused dependencies
+        run: mix deps.unlock --check-unused
+
+  compile-dev:
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        uses: ./.github/actions/setup-beam
+      - run: mix deps.get
+      - run: MIX_ENV=dev mix compile --warnings-as-errors
+
+  check-outdated-deps:
+    needs: dependencies
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        uses: ./.github/actions/setup-beam
+      - run: mix deps.get
+      - name: Check for outdated dependencies
+        continue-on-error: true
+        run: mix hex.outdated > hex-outdated.txt 2>&1 || true
+      - name: Prepare comment body
+        if: github.event_name == 'pull_request'
+        run: |
+          if [ -s hex-outdated.txt ]; then
+            {
+              echo "## Outdated Dependencies Check"
+              echo ""
+              echo '```'
+              cat hex-outdated.txt
+              echo '```'
+            } > comment-body.txt
+          else
+            {
+              echo "## Outdated Dependencies Check"
+              echo ""
+              echo "All dependencies are up to date."
+            } > comment-body.txt
+          fi
+      - name: Create or update PR comment
+        if: github.event_name == 'pull_request'
+        uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: hex-outdated-check
+          path: comment-body.txt
+
+  compile-test:
+    needs: dependencies
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        uses: ./.github/actions/setup-beam
+      - run: mix deps.get
+      - run: MIX_ENV=test mix compile --warnings-as-errors
+
+  static-code-analysis:
+    needs: [compile-dev, compile-test]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        id: setup
+        uses: ./.github/actions/setup-beam
+      - name: Retrieve cached PLT
+        id: plt-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: priv/plts
+          key: plt-${{ runner.os }}-${{ steps.setup.outputs.otp-version }}-${{ steps.setup.outputs.elixir-version }}-${{ hashFiles('mix.lock') }}
+      - name: Build Dialyzer PLT
+        if: steps.plt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p priv/plts
+          mix dialyzer --plt
+      - run: mix format --check-formatted
+      - run: mix credo --strict
+      - run: mix dialyzer
+
+  mix-test:
+    needs: static-code-analysis
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up Elixir environment
+        uses: ./.github/actions/setup-beam
+      - run: mix deps.get
+      - run: mix test --trace --slowest 10
