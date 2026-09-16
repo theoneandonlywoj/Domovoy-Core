@@ -29,7 +29,7 @@ defmodule DomovoyCore.Workflow.Server do
       alias DomovoyCore.Workflow.Server
       prepare = DomovoyCore.Stage.new(%{name: "prepare", graph: DomovoyCore.Graph.new(), next: "review"})
       review = DomovoyCore.Decision.new(%{name: "review", prompt: "Go?", choices: [DomovoyCore.Choice.new(%{name: "approve", description: "Go.", target: :halt})]})
-      workflow = DomovoyCore.Workflow.new!(%{name: "review_double", vertices: %{"prepare" => prepare, "review" => review}, start: "prepare", inputs: %{"count" => [type: DomovoyCore.Type.Integer]}})
+      workflow = DomovoyCore.Workflow.new!(%{name: "review_double", vertices: %{"prepare" => prepare, "review" => review}, start: "prepare", inputs: %{"count" => %{type: DomovoyCore.Type.Integer}}})
       job = DomovoyCore.Job.new("dom-43")
       :ok = Server.subscribe(MyDomovoy, workflow.name, job.id)
       {:ok, pid} = Server.start(MyDomovoy, workflow, %{"count" => 3}, job: job)

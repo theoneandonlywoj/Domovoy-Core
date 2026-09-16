@@ -23,12 +23,11 @@ defmodule DomovoyCore.Workflow do
   ## Inputs
 
   `inputs` declares the values that a run starts with. Each key is the name of
-  one input, and the value is a keyword list with a `:type` and an optional
-  `:default`:
+  one input, and the value is a map with a `:type` and an optional `:default`:
 
       inputs: %{
-        "issue_id" => [type: DomovoyCore.Type.String],
-        "plan_context" => [type: DomovoyCore.Type.String, default: ""]
+        "issue_id" => %{type: DomovoyCore.Type.String},
+        "plan_context" => %{type: DomovoyCore.Type.String, default: ""}
       }
 
   `DomovoyCore.Run.start/4` casts each provided value with the declared type. It
@@ -88,7 +87,7 @@ defmodule DomovoyCore.Workflow do
       ...>   name: "review_worktree",
       ...>   vertices: %{"prepare" => prepare, "review" => review, "report" => report},
       ...>   start: "prepare",
-      ...>   inputs: %{"count" => [type: DomovoyCore.Type.Integer, default: 1]}
+      ...>   inputs: %{"count" => %{type: DomovoyCore.Type.Integer, default: 1}}
       ...> })
       iex> workflow.start
       "prepare"
@@ -149,11 +148,11 @@ defmodule DomovoyCore.Workflow do
   @typedoc "The declared inputs of a workflow, by name."
   @type inputs() :: %{String.t() => input()}
 
-  @typedoc """
-  The inputs of a workflow as the caller writes them. Each value is a keyword
-  list with a required `:type` and an optional `:default`.
-  """
-  @type new_inputs() :: %{String.t() => keyword()}
+  @typedoc "One input as the caller writes it: a `:type` and an optional `:default`."
+  @type new_input() :: %{required(:type) => Type.t(), optional(:default) => term()}
+
+  @typedoc "The inputs of a workflow as the caller writes them, by name."
+  @type new_inputs() :: %{String.t() => new_input()}
 
   @type t() :: %Workflow{
           name: String.t(),
@@ -310,9 +309,9 @@ defmodule DomovoyCore.Workflow do
     end
   end
 
-  @spec parse_input(name :: String.t(), opts :: keyword()) ::
+  @spec parse_input(name :: String.t(), opts :: map()) ::
           {:ok, input()} | {:error, Error.t()}
-  defp parse_input(name, opts) when is_binary(name) and is_list(opts) do
+  defp parse_input(name, opts) when is_binary(name) and is_map(opts) do
     case Name.valid?(name) do
       true -> parse_input_options(name, opts)
       false -> {:error, Error.invalid_workflow_input(name, :invalid_name)}
@@ -321,21 +320,21 @@ defmodule DomovoyCore.Workflow do
 
   defp parse_input(name, _opts), do: {:error, Error.invalid_workflow_input(name, :invalid_name)}
 
-  @spec parse_input_options(name :: String.t(), opts :: keyword()) ::
+  @spec parse_input_options(name :: String.t(), opts :: map()) ::
           {:ok, input()} | {:error, Error.t()}
   defp parse_input_options(name, opts) do
-    case Keyword.get(opts, :type) do
+    case Map.get(opts, :type) do
       nil -> {:error, Error.invalid_workflow_input(name, :type_missing)}
       type when is_atom(type) -> parse_input_type(name, type, opts)
       _other -> {:error, Error.invalid_workflow_input(name, :type_missing)}
     end
   end
 
-  @spec parse_input_type(name :: String.t(), type :: atom(), opts :: keyword()) ::
+  @spec parse_input_type(name :: String.t(), type :: atom(), opts :: map()) ::
           {:ok, input()} | {:error, Error.t()}
   defp parse_input_type(name, type, opts) do
     case Type.type?(type) do
-      true -> {:ok, %{type: type, default: Keyword.get(opts, :default)}}
+      true -> {:ok, %{type: type, default: Map.get(opts, :default)}}
       false -> {:error, Error.invalid_workflow_input(name, :not_a_type)}
     end
   end
