@@ -25,6 +25,8 @@ defmodule DomovoyCore.DoctestTest do
   doctest DomovoyCore.Retry
   doctest DomovoyCore.Run
   doctest DomovoyCore.Runner
+  doctest DomovoyCore.Shell
+  doctest DomovoyCore.Shell.MuonTrap
   doctest DomovoyCore.Stage
   doctest DomovoyCore.Store
   doctest DomovoyCore.Store.FileSystem
