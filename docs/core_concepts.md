@@ -1371,12 +1371,95 @@ sequenceDiagram
 | `[:domovoy_core, :workflow, :drive, :queued]` | Wait for workflow task capacity. |
 | `[:domovoy_core, :workflow, :drive, :dequeued]` | Acquire workflow task capacity. |
 
-`Journal.append/2` also executes one event per journal change under
-`[:domovoy_core, :event, kind]`, where `kind` is one of `Event.kinds/0`:
-`:run_started`, `:stage_started`, `:node_started`, `:node_finished`,
-`:node_failed`, `:node_retried`, `:node_cancelled`, `:node_skipped`,
-`:stage_finished`, `:stage_failed`, `:decision_awaited`, `:decided`,
-`:run_halted`, `:run_finished`, and `:run_failed`.
+`Journal.append/2` executes one telemetry event per journal Event under
+`[:domovoy_core, :event, kind]`. `Event.telemetry_events/0` returns every
+name in `Event.kinds/0` order, including all node events. The telemetry
+metadata copies `event.payload`. Typical payloads from the tutorial
+workflow:
+
+```elixir
+Event.telemetry_events()
+# => [
+#   [:domovoy_core, :event, :run_started],
+#   [:domovoy_core, :event, :stage_started],
+#   [:domovoy_core, :event, :node_started],
+#   [:domovoy_core, :event, :node_finished],
+#   [:domovoy_core, :event, :node_failed],
+#   [:domovoy_core, :event, :node_retried],
+#   [:domovoy_core, :event, :node_cancelled],
+#   [:domovoy_core, :event, :node_skipped],
+#   [:domovoy_core, :event, :stage_finished],
+#   [:domovoy_core, :event, :stage_failed],
+#   [:domovoy_core, :event, :decision_awaited],
+#   [:domovoy_core, :event, :decided],
+#   [:domovoy_core, :event, :run_halted],
+#   [:domovoy_core, :event, :run_finished],
+#   [:domovoy_core, :event, :run_failed]
+# ]
+
+# :run_started, subject: "tutorial"
+%{"cursor" => "prepare", "input_fingerprint" => "e3b0c44298fc1c149afbf4c8996fb924..."}
+
+# :stage_started, subject: "prepare"
+%{}
+
+# :node_started, subject: "double"
+%{}
+
+# :node_finished after a runner attempt, subject: "double"
+%{"hit" => false}
+
+# :node_finished after a store hit, subject: "double"
+%{"hit" => true, "attempt" => 1}
+
+# :node_failed, subject: "double"
+%{"error_type" => "runner_failed"}
+
+# :node_retried, subject: "double"
+%{"backoff_ms" => 100}
+
+# :node_cancelled, subject: "increment"
+%{}
+
+# :node_skipped, subject: "audit"
+%{}
+
+# :stage_finished, subject: "prepare"
+%{"nodes" => ["audit", "double", "increment"]}
+
+# :stage_failed, subject: "prepare"
+%{"error_type" => "runner_failed"}
+
+# :decision_awaited, subject: "review"
+%{"choices" => ["approve", "revise", "stop"]}
+
+# :decided with {:run, "report"}, subject: "review"
+%{"choice" => "approve", "target" => %{"kind" => "run", "vertex" => "report"}}
+
+# :decided with {:rerun, "prepare"}, subject: "review"
+%{"choice" => "revise", "target" => %{"kind" => "rerun", "vertex" => "prepare"}}
+
+# :decided with :halt, subject: "review"
+%{"choice" => "stop", "target" => "halt"}
+
+# :run_halted, subject: "tutorial"
+%{"decision" => "review"}
+
+# :run_finished, subject: "tutorial"
+%{"last" => "report"}
+
+# :run_failed, subject: "tutorial"
+%{
+  "cursor" => "prepare",
+  "error_type" => "runner_failed",
+  "error" => %{
+    "type" => "runner_failed",
+    "reason" => %{"node" => "double", "runner" => "Tutorial.DoubleRunner", "exit" => "abnormal"},
+    "retryable?" => true,
+    "metadata" => %{}
+  }
+}
+```
 
 Attach handlers to complete event names, for example:
 
