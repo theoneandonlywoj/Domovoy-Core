@@ -3,14 +3,16 @@ defmodule DomovoyCore.Event do
   One change of the state of a run.
 
   A `DomovoyCore.Journal` keeps the events of a run in order, and
-  `DomovoyCore.Journal.append/2` sends each one to the selected runtime's PubSub. An event
-  holds the `DomovoyCore.Job` of the run as it was at the time, the time, the
-  `kind` of the change, the `subject` that it is about, and a `payload` with
-  string keys. The job names the run and holds its generation and attempt,
-  so the payload holds only what changed. The subject is a node name, a
-  vertex name, or the workflow name for a run event.
+  `DomovoyCore.Journal.append/2` sends each one to the selected runtime's PubSub
+  and executes telemetry `telemetry_event/1`. An event holds the
+  `DomovoyCore.Job` of the run as it was at the time, the time, the `kind` of
+  the change, the `subject` that it is about, and a `payload` with string
+  keys. The job names the run and holds its generation and attempt, so the
+  payload holds only what changed. The subject is a node name, a vertex
+  name, or the workflow name for a run event.
 
-  `kinds/0` gives the kinds. The Engine emits node events for each attempt.
+  `kinds/0` gives the kinds. `telemetry_events/0` gives the telemetry names.
+  The Engine emits node events for each attempt.
   It emits `:node_retried` with the next attempt's job before the fixed
   backoff starts. The payload holds `"backoff_ms"`.
 
@@ -133,6 +135,64 @@ defmodule DomovoyCore.Event do
   """
   @spec kinds() :: [kind()]
   def kinds, do: @kinds
+
+  @doc """
+  Gives the telemetry event name of `kind`.
+
+  ## Examples
+
+      iex> DomovoyCore.Event.telemetry_event(:node_finished)
+      [:domovoy_core, :event, :node_finished]
+  """
+  @spec telemetry_event(kind :: kind()) :: [atom()]
+  def telemetry_event(kind) when kind in @kinds, do: [:domovoy_core, :event, kind]
+
+  @doc """
+  Gives the telemetry event names of every kind, in the order of `kinds/0`.
+
+  ## Examples
+
+      iex> hd(DomovoyCore.Event.telemetry_events())
+      [:domovoy_core, :event, :run_started]
+  """
+  @spec telemetry_events() :: [[atom()]]
+  def telemetry_events, do: Enum.map(@kinds, &telemetry_event/1)
+
+  @doc """
+  Gives the telemetry metadata of `event` in `workflow`.
+
+  ## Examples
+
+      iex> job = DomovoyCore.Job.new("dom-30") |> DomovoyCore.Job.at_generation(1)
+      iex> event = DomovoyCore.Event.new(%{
+      ...>   job: job,
+      ...>   kind: :node_finished,
+      ...>   subject: "worktree_diff",
+      ...>   payload: %{"hit" => false}
+      ...> })
+      iex> DomovoyCore.Event.telemetry_meta(event, "issue_to_pr")
+      %{
+        workflow: "issue_to_pr",
+        run_id: "dom-30",
+        generation: 1,
+        attempt: 1,
+        kind: :node_finished,
+        subject: "worktree_diff",
+        payload: %{"hit" => false}
+      }
+  """
+  @spec telemetry_meta(event :: t(), workflow :: String.t()) :: %{atom() => any()}
+  def telemetry_meta(%Event{} = event, workflow) when is_binary(workflow) do
+    %{
+      workflow: workflow,
+      run_id: event.job.id,
+      generation: event.job.generation,
+      attempt: event.job.attempt,
+      kind: event.kind,
+      subject: event.subject,
+      payload: event.payload
+    }
+  end
 
   @doc """
   Makes an event. `at` is now by default. A kind that `kinds/0` does not

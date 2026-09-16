@@ -7,8 +7,9 @@ defmodule DomovoyCore.Journal do
   `workflow:` among them, and gives a `%DomovoyCore.Journal{}`. `open/4`
   requires `workflow:`. It gives a `journal_error` when `workflow:` is
   missing. `append/2` adds one `DomovoyCore.Event` at the end and then sends
-  `{:domovoy_event, event}` to every subscriber on the runtime's PubSub.
-  `events/1` gives every event in the order of the appends.
+  `{:domovoy_event, event}` to every subscriber on the runtime's PubSub
+  and executes `DomovoyCore.Event.telemetry_event/1`. `events/1` gives every
+  event in the order of the appends.
 
   The journal is append-only. Nothing in it changes or goes away. The state
   of a run is what its events say, so a later step folds them to rebuild a
@@ -23,7 +24,8 @@ defmodule DomovoyCore.Journal do
   names gives two topics with no cross-talk.
 
   `append/2` commits the adapter write first, then broadcasts on the scoped
-  topic. The broadcast is best effort. A failure logs a warning and keeps `:ok`.
+  topic and executes telemetry. The broadcast is best effort. A failure logs
+  a warning and keeps `:ok`.
 
   Every failure is a `DomovoyCore.Error` with `type: :journal_error`.
 
@@ -105,10 +107,12 @@ defmodule DomovoyCore.Journal do
   end
 
   @doc """
-  Adds `event` at the end of `journal`, then sends it on the runtime's PubSub.
+  Adds `event` at the end of `journal`, then sends it on the runtime's PubSub
+  and executes telemetry.
 
   The message is `{:domovoy_event, event}` on `topic/2` of the run. The
-  broadcast is best effort. A failure logs a warning and keeps `:ok`.
+  telemetry name is `DomovoyCore.Event.telemetry_event/1`. The broadcast is
+  best effort. A failure logs a warning and keeps `:ok`.
   """
   @spec append(journal :: t(), event :: Event.t()) :: :ok | {:error, Error.t()}
   def append(
@@ -127,6 +131,12 @@ defmodule DomovoyCore.Journal do
       topic
       |> broadcast(runtime, event)
       |> log_broadcast_failure(topic)
+
+      :telemetry.execute(
+        Event.telemetry_event(event.kind),
+        %{},
+        Event.telemetry_meta(event, workflow)
+      )
 
       :ok
     end
