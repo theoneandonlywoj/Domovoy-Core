@@ -1,0 +1,13 @@
+#!/bin/sh
+#
+# Run the project's quality checks and test suite before pushing.
+
+set -e
+
+echo "Running mix quality..."
+mix quality
+
+echo "Running mix test..."
+mix test
+
+echo "Pre-push checks passed."
