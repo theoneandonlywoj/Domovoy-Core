@@ -528,8 +528,8 @@ tutorial_workflow =
     },
     start: "prepare",
     inputs: %{
-      "count" => [type: Type.Integer],
-      "note" => [type: Type.String, default: "No note."]
+      "count" => %{type: Type.Integer},
+      "note" => %{type: Type.String, default: "No note."}
     },
     store: {FileSystemStore, root: example_root},
     journal: {FileSystemJournal, root: example_root}
