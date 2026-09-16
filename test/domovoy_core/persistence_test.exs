@@ -109,6 +109,42 @@ defmodule DomovoyCore.PersistenceTest do
     assert Journal.topic("flow", job.id) == "run:flow:journal-broadcast"
   end
 
+  test "journal append emits telemetry for every event kind" do
+    parent = self()
+    handler = :"journal-telemetry-#{System.unique_integer([:positive])}"
+
+    :ok =
+      :telemetry.attach_many(
+        handler,
+        Event.telemetry_events(),
+        fn event, measurements, metadata, _config ->
+          send(parent, {event, measurements, metadata})
+        end,
+        nil
+      )
+
+    on_exit(fn -> :telemetry.detach(handler) end)
+
+    job = Job.new("journal-telemetry")
+    {:ok, journal} = Journal.open(@runtime, MemoryJournal, job.id, workflow: "flow")
+
+    for kind <- Event.kinds() do
+      event = event(job, kind, "sum")
+      assert Journal.append(journal, event) == :ok
+
+      assert_receive {[:domovoy_core, :event, ^kind], %{},
+                      %{
+                        workflow: "flow",
+                        run_id: "journal-telemetry",
+                        generation: 0,
+                        attempt: 1,
+                        kind: ^kind,
+                        subject: "sum",
+                        payload: %{"cursor" => "x"}
+                      }}
+    end
+  end
+
   test "journal identifies adapters and durability" do
     assert Journal.adapter?(JournalFileSystem)
     assert Journal.adapter?(MemoryJournal)
