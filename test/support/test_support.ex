@@ -371,7 +371,7 @@ defmodule DomovoyCore.Test.Support do
       name: Keyword.get(opts, :name, "review_workflow"),
       vertices: %{"prepare" => prepare, "review" => review, "finish" => finish},
       start: "prepare",
-      inputs: %{"base" => [type: IntegerType, default: 1]},
+      inputs: %{"base" => %{type: IntegerType, default: 1}},
       store: Keyword.get(opts, :store, MemoryStore),
       journal: Keyword.get(opts, :journal, MemoryJournal)
     })

@@ -241,7 +241,7 @@ defmodule DomovoyCore.ModelTest do
              name: workflow.name,
              vertices: workflow.vertices,
              start: "missing",
-             inputs: %{"base" => [type: Type.Integer]},
+             inputs: %{"base" => %{type: Type.Integer}},
              store: MemoryStore,
              journal: MemoryJournal
            }) == Error.vertex_not_in_workflow("missing", workflow.name)
@@ -250,7 +250,7 @@ defmodule DomovoyCore.ModelTest do
              name: "not a name",
              vertices: workflow.vertices,
              start: "prepare",
-             inputs: %{"base" => [type: Type.Integer]},
+             inputs: %{"base" => %{type: Type.Integer}},
              store: MemoryStore,
              journal: MemoryJournal
            }) == Error.invalid_workflow_name("not a name")
@@ -260,7 +260,7 @@ defmodule DomovoyCore.ModelTest do
                name: workflow.name,
                vertices: workflow.vertices,
                start: "prepare",
-               inputs: %{"base" => [type: Type.Integer]},
+               inputs: %{"base" => %{type: Type.Integer}},
                store: Graph,
                journal: MemoryJournal
              })
