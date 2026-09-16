@@ -1371,6 +1371,13 @@ sequenceDiagram
 | `[:domovoy_core, :workflow, :drive, :queued]` | Wait for workflow task capacity. |
 | `[:domovoy_core, :workflow, :drive, :dequeued]` | Acquire workflow task capacity. |
 
+`Journal.append/2` also executes one event per journal change under
+`[:domovoy_core, :event, kind]`, where `kind` is one of `Event.kinds/0`:
+`:run_started`, `:stage_started`, `:node_started`, `:node_finished`,
+`:node_failed`, `:node_retried`, `:node_cancelled`, `:node_skipped`,
+`:stage_finished`, `:stage_failed`, `:decision_awaited`, `:decided`,
+`:run_halted`, `:run_finished`, and `:run_failed`.
+
 Attach handlers to complete event names, for example:
 
 ```elixir
@@ -1384,7 +1391,7 @@ Attach handlers to complete event names, for example:
     [:domovoy_core, :workflow, :resume, :stop],
     [:domovoy_core, :workflow, :drive, :queued],
     [:domovoy_core, :workflow, :drive, :dequeued]
-  ],
+  ] ++ Event.telemetry_events(),
   fn event, measurements, metadata, _config ->
     IO.inspect({event, measurements, metadata})
   end,
@@ -1394,7 +1401,9 @@ Attach handlers to complete event names, for example:
 
 Common metadata includes `workflow`, `run_id`, `generation`, and `cursor`.
 Stop metadata also includes `outcome`. Drive metadata adds `vertex` and
-`kind`, where kind is `:stage`, `:decision`, or `:unknown`.
+`kind`, where kind is `:stage`, `:decision`, or `:unknown`. Journal event
+metadata includes `workflow`, `run_id`, `generation`, `attempt`, `kind`,
+`subject`, and `payload`.
 
 ## Run State
 
