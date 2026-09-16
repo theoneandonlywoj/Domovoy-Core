@@ -35,6 +35,7 @@ defmodule DomovoyCore.MixProject do
       {:ecto, "~> 3.12"},
       {:phoenix_pubsub, "~> 2.1"},
       {:telemetry, "~> 1.0"},
+      {:muontrap, "~> 2.0"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false}
     ]
