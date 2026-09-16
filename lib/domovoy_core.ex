@@ -1,19 +1,20 @@
 defmodule DomovoyCore do
   @moduledoc """
-  Documentation for `DomovoyCore`.
-  """
+  Provides graph execution and plugin integrations for DomovoyCore.
 
-  @doc """
-  Hello world.
+  A node declares its runner inputs with `bind` and `args`. The Engine
+  resolves each input and casts it through the input schema of the runner.
+  A `DomovoyCore.Validator` checks a rule on the changeset before the runner
+  runs.
+
+  A `DomovoyCore.Runner` performs the work. It returns a raw value in a success
+  tuple, and the Engine casts the value through the node type.
+
+  Capabilities hold graph-independent logic. Value types cast and dump values.
 
   ## Examples
 
-      iex> DomovoyCore.hello()
-      :world
-
+      iex> DomovoyCore.Runner.behaviour_info(:callbacks)
+      [run: 2]
   """
-  @spec hello() :: :world
-  def hello do
-    :world
-  end
 end
